@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.dll
+
+# datasets
+brain_tumor_dataset/
+chest_xray_dataset/
+khee_oes_dataset/
+
+# models
+*.h5
+*.pt
+*.pth

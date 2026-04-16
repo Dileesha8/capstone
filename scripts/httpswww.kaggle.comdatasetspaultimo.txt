@@ -1,0 +1,13 @@
+https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia?resource=download
+chest x-ray images
+
+https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset
+Brain tumor MRI Dataset 
+
+https://www.kaggle.com/datasets/rahimanshu/cardiomegaly-disease-prediction-using-cnn
+Cardiomegaly Disease prediction
+
+https://www.kaggle.com/datasets/shashwatwork/knee-osteoarthritis-dataset-with-severity
+Knee Osteoarthritis Dataset with Severity Grading
+
+
