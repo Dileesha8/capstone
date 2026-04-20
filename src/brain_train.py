@@ -8,11 +8,15 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report, confusion_matrix
 import numpy as np
 import os
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+from sklearn.preprocessing import label_binarize
+import seaborn as sns
 
 # =========================
 # PATH
 # =========================
-BASE_DIR = r"C:\Users\91701\capstone"
+BASE_DIR = r"C:\Users\<username>\Downloads\project"
 train_dir = os.path.join(BASE_DIR, "brain_tumor_dataset", "Training")
 val_dir   = os.path.join(BASE_DIR, "brain_tumor_dataset", "Testing")
 
@@ -100,7 +104,7 @@ callbacks = [
 # =========================
 # TRAIN
 # =========================
-model.fit(
+history = model.fit(
     train_data,
     validation_data=val_data,
     epochs=EPOCHS,
@@ -119,8 +123,93 @@ y_true = val_data.classes
 print(classification_report(y_true, y_pred))
 print(confusion_matrix(y_true, y_pred))
 
+
+# Accuracy
+plt.figure()
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.legend()
+plt.title("Accuracy - BRAIN MODEL")
+plt.show()
+
+# Loss
+plt.figure()
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.legend()
+plt.title("Loss - BRAIN MODEL")
+plt.show()
+
+# Precision
+plt.figure()
+plt.plot(history.history['precision'], label='Train Precision')
+plt.plot(history.history['val_precision'], label='Val Precision')
+plt.legend()
+plt.title("Precision - BRAIN MODEL")
+plt.show()
+
+# Recall
+plt.figure()
+plt.plot(history.history['recall'], label='Train Recall')
+plt.plot(history.history['val_recall'], label='Val Recall')
+plt.legend()
+plt.title("Recall - BRAIN MODEL")
+plt.show()
+
+# AUC
+plt.figure()
+plt.plot(history.history['auc'], label='Train AUC')
+plt.plot(history.history['val_auc'], label='Val AUC')
+plt.legend()
+plt.title("AUC - BRAIN MODEL")
+plt.show()
+
+
+# Binarize labels
+n_classes = train_data.num_classes
+y_true_bin = label_binarize(y_true, classes=range(n_classes))
+
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+
+for i in range(n_classes):
+    fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], preds[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+
+# Plot ROC
+plt.figure()
+for i in range(n_classes):
+    plt.plot(fpr[i], tpr[i], label=f'Class {i} (AUC = {roc_auc[i]:.2f})')
+
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve - BRAIN MODEL")
+plt.legend()
+plt.show()
+
+
+cm = confusion_matrix(y_true, y_pred)
+
+plt.figure(figsize=(6,5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix - BRAIN MODEL")
+plt.show()
 # =========================
-# SAVE
+# SAVE (SAFE)
 # =========================
-model.save(os.path.join(BASE_DIR, "models", "brain_model.keras"))
-print("✅ Brain model saved")
+try:
+    model_dir = os.path.join(BASE_DIR, "models")
+    os.makedirs(model_dir, exist_ok=True)
+
+    save_path = os.path.join(model_dir, "brain_model.keras")
+    model.save(save_path)
+    model.save_weights(os.path.join(model_dir, "brain_weights.weights.h5"))
+
+    print(f"✅ Model saved at: {save_path}")
+
+except Exception as e:
+    print("❌ Error saving model:", e)
