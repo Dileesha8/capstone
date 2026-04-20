@@ -4,15 +4,22 @@ from tensorflow.keras.applications import DenseNet121
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import roc_curve, auc, precision_recall_curve
+from sklearn.preprocessing import label_binarize
+
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 import os
+import cv2
 
 # =========================
 # PATH
 # =========================
-BASE_DIR = r"C:\Users\91701\capstone"
+BASE_DIR = r"C:\Users\<username>\Downloads\project"
 train_dir = os.path.join(BASE_DIR, "chest_xray_dataset", "train")
 val_dir   = os.path.join(BASE_DIR, "chest_xray_dataset", "val")
 
@@ -21,7 +28,7 @@ val_dir   = os.path.join(BASE_DIR, "chest_xray_dataset", "val")
 # =========================
 IMG_SIZE = 224
 BATCH_SIZE = 16
-EPOCHS = 20   # increased
+EPOCHS = 15
 
 # =========================
 # DATA
@@ -53,7 +60,7 @@ val_data = val_gen.flow_from_directory(
 )
 
 # =========================
-# CLASS WEIGHTS (IMPORTANT)
+# CLASS WEIGHTS
 # =========================
 class_weights = compute_class_weight(
     class_weight='balanced',
@@ -92,36 +99,145 @@ model.compile(
 # =========================
 # CALLBACKS
 # =========================
-callbacks = [
-    EarlyStopping(patience=5, restore_best_weights=True),
-    ReduceLROnPlateau(patience=3)
-]
+#callbacks = [
+#    EarlyStopping(patience=5, restore_best_weights=True),
+#   ReduceLROnPlateau(patience=3)
+#]
 
 # =========================
 # TRAIN
 # =========================
-model.fit(
+history = model.fit(
     train_data,
     validation_data=val_data,
     epochs=EPOCHS,
     class_weight=class_weights,
-    callbacks=callbacks
+    #callbacks=callbacks
 )
 
 # =========================
-# EVALUATION
+# PLOTS: ACCURACY & LOSS
+# =========================
+plt.figure()
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Accuracy - CHEST MODEL')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend(['Train', 'Validation'])
+plt.show()
+
+plt.figure()
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Loss - CHEST MODEL')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(['Train', 'Validation'])
+plt.show()
+
+# =========================
+# PREDICTIONS
 # =========================
 val_data.reset()
 preds = model.predict(val_data)
 y_pred = np.argmax(preds, axis=1)
 y_true = val_data.classes
 
+print("\nClassification Report:\n")
 print(classification_report(y_true, y_pred))
-print(confusion_matrix(y_true, y_pred))
 
 # =========================
-# SAVE
+# CONFUSION MATRIX
 # =========================
-model.save(os.path.join(BASE_DIR, "models", "severity_model.keras"))
-print("✅ Chest model saved")
+cm = confusion_matrix(y_true, y_pred)
 
+plt.figure(figsize=(6,5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix - CHEST MODEL')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.show()
+
+# =========================
+# ROC CURVE + AUC
+# =========================
+n_classes = train_data.num_classes
+y_true_bin = label_binarize(y_true, classes=range(n_classes))
+
+plt.figure()
+
+for i in range(n_classes):
+    fpr, tpr, _ = roc_curve(y_true_bin[:, i], preds[:, i])
+    roc_auc = auc(fpr, tpr)
+    plt.plot(fpr, tpr, label=f'Class {i} (AUC = {roc_auc:.2f})')
+
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve - CHEST MODEL')
+plt.legend()
+plt.show()
+
+# =========================
+# PRECISION-RECALL CURVE
+# =========================
+plt.figure()
+
+for i in range(n_classes):
+    precision, recall, _ = precision_recall_curve(y_true_bin[:, i], preds[:, i])
+    plt.plot(recall, precision, label=f'Class {i}')
+
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.title('Precision-Recall Curve - CHEST MODEL')
+plt.legend()
+plt.show()
+
+# =========================
+# FALSE POSITIVE / NEGATIVE
+# =========================
+fp = []
+fn = []
+
+for i in range(len(y_true)):
+    if y_true[i] != y_pred[i]:
+        if y_pred[i] > y_true[i]:
+            fp.append(i)
+        else:
+            fn.append(i)
+
+print("False Positives:", len(fp))
+print("False Negatives:", len(fn))
+
+# =========================
+# SHOW MISCLASSIFIED IMAGES
+# =========================
+
+
+def show_misclassified(indices, title):
+    plt.figure(figsize=(10,5))
+
+    for i, idx in enumerate(indices[:6]):  # show max 6
+        img_path = val_data.filepaths[idx]
+
+        img = cv2.imread(img_path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        plt.subplot(2,3,i+1)
+        plt.imshow(img)
+        plt.title(f"Pred: {y_pred[idx]} | True: {y_true[idx]}")
+        plt.axis('off')
+
+    plt.suptitle(title)
+    plt.show()
+
+# =========================
+# SAVE MODEL
+# =========================
+model_dir = os.path.join(BASE_DIR, "models")
+os.makedirs(model_dir, exist_ok=True)
+
+model.save(os.path.join(model_dir, "chest_model15.keras"))
+
+print("✅ Chest model saved successfully!")
